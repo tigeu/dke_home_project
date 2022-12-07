@@ -10,7 +10,7 @@ PREFIX itsrdf:<https://www.w3.org/2005/11/its/rdf#>
 PREFIX schema:<http://schema.org/>
 PREFIX dbr:<http://dbpedia.org/resource/>
 
-SELECT DISTINCT ?claim ?text ?groundtruth ?mentions ?citations
+SELECT DISTINCT ?claim ?text ?groundtruth ?mentions ?citations ?avgscore
 WHERE { 
     ?claim a schema:CreativeWork ; 
            schema:datePublished ?date 
@@ -25,6 +25,13 @@ WHERE {
     {
         SELECT ?claim (COUNT(?mention) AS ?mentions) WHERE {
             ?claim schema:mentions ?mention
+        } GROUP BY ?claim
+    }
+    # calculate avg score
+    {
+        SELECT ?claim (AVG(?score) AS ?avgscore) WHERE {
+            ?claim schema:mentions ?mention .
+            ?mention itsrdf:taConfidence ?score
         } GROUP BY ?claim
     }
     # count citations
@@ -62,7 +69,8 @@ for result in results['results']['bindings']:
     groundtruth = int(result['groundtruth']['value'])
     citations = int(result['citations']['value'])
     mentions = int(result['mentions']['value'])
-    X_train.append([citations, mentions])
+    avgscore = float(result['avgscore']['value'])
+    X_train.append([citations, mentions, avgscore])
     y_train.append(groundtruth)
     if groundtruth == 0:
         false_claims += 1
@@ -93,7 +101,7 @@ PREFIX itsrdf:<https://www.w3.org/2005/11/its/rdf#>
 PREFIX schema:<http://schema.org/>
 PREFIX dbr:<http://dbpedia.org/resource/>
 
-SELECT DISTINCT ?claim ?text ?groundtruth ?mentions ?citations
+SELECT DISTINCT ?claim ?text ?groundtruth ?mentions ?citations ?avgscore
 WHERE { 
     ?claim a schema:CreativeWork ; 
            schema:datePublished ?date 
@@ -108,6 +116,13 @@ WHERE {
     {
         SELECT ?claim (COUNT(?mention) AS ?mentions) WHERE {
             ?claim schema:mentions ?mention
+        } GROUP BY ?claim
+    }
+    # calculate avg score
+    {
+        SELECT ?claim (AVG(?score) AS ?avgscore) WHERE {
+            ?claim schema:mentions ?mention .
+            ?mention itsrdf:taConfidence ?score
         } GROUP BY ?claim
     }
     # count citations
@@ -134,7 +149,8 @@ for result in results['results']['bindings']:
     groundtruth = int(result['groundtruth']['value'])
     citations = int(result['citations']['value'])
     mentions = int(result['mentions']['value'])
-    X_val.append([citations, mentions])
+    avgscore = float(result['avgscore']['value'])
+    X_val.append([citations, mentions, avgscore])
     y_val.append(groundtruth)
 
 
