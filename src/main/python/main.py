@@ -10,17 +10,15 @@ PREFIX itsrdf:<https://www.w3.org/2005/11/its/rdf#>
 PREFIX schema:<http://schema.org/>
 PREFIX dbr:<http://dbpedia.org/resource/>
 
-SELECT DISTINCT ?claim ?text ?groundtruth ?mentions ?citations ?avgscore
+SELECT DISTINCT ?claim ?text ?groundTruth ?mentions ?citations ?avgScore ?authoredCount
 WHERE { 
     ?claim a schema:CreativeWork ; 
-           schema:datePublished ?date 
+           schema:datePublished ?date
     # only claims earlier than 2022
     FILTER(year(?date)<2022) 
     ?claim schema:text ?text 
     # only english 
     FILTER(lang(?text)="en")
-    ?claimReview schema:itemReviewed ?claim ;
-                 schema:reviewRating ?reviewRating 
     # count mentions
     {
         SELECT ?claim (COUNT(?mention) AS ?mentions) WHERE {
@@ -29,7 +27,7 @@ WHERE {
     }
     # calculate avg score
     {
-        SELECT ?claim (AVG(?score) AS ?avgscore) WHERE {
+        SELECT ?claim (AVG(?score) AS ?avgScore) WHERE {
             ?claim schema:mentions ?mention .
             ?mention itsrdf:taConfidence ?score
         } GROUP BY ?claim
@@ -40,12 +38,21 @@ WHERE {
             ?claim schema:citation ?citation
         } GROUP BY ?claim
     }
+    # count authored
+    {
+        SELECT ?claim (COUNT(?authoredClaim) AS ?authoredCount) WHERE {
+            ?claim schema:author ?author .
+            ?author ^schema:author ?authoredClaim
+        } GROUP BY ?claim
+    }
     # only use claims that have a FALSE, TRUE, or OTHER review
+    ?claim ^schema:itemReviewed ?review .
+    ?review schema:reviewRating ?reviewRating
     FILTER(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_TRUE" || STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_FALSE" || STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_OTHER")
     # bind FALSE to 0, TRUE to 1, OTHER to 2
     BIND(IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_FALSE", 0, 
              IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_TRUE", 1, 
-                 IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_OTHER", 2, -1))) AS ?groundtruth)
+                 IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_OTHER", 2, -1))) AS ?groundTruth)
 } 
 """)
 
@@ -56,34 +63,41 @@ results = sparql.query().convert()
 true_claims = 0
 true_claims_citations = 0
 true_claims_mentions = 0
+true_claims_authored = 0
 false_claims = 0
 false_claims_citations = 0
 false_claims_mentions = 0
+false_claims_authored = 0
 other_claims = 0
 other_claims_citations = 0
 other_claims_mentions = 0
+other_claims_authored = 0
 
 X_train = []
 y_train = []
 for result in results['results']['bindings']:
-    groundtruth = int(result['groundtruth']['value'])
+    ground_truth = int(result['groundTruth']['value'])
     citations = int(result['citations']['value'])
     mentions = int(result['mentions']['value'])
-    avgscore = float(result['avgscore']['value'])
-    X_train.append([citations, mentions, avgscore])
-    y_train.append(groundtruth)
-    if groundtruth == 0:
+    avg_score = float(result['avgScore']['value'])
+    authored_count = int(result['authoredCount']['value'])
+    X_train.append([citations, mentions, avg_score, authored_count])
+    y_train.append(ground_truth)
+    if ground_truth == 0:
         false_claims += 1
         false_claims_citations += citations
         false_claims_mentions += mentions
-    elif groundtruth == 1:
+        false_claims_authored += authored_count
+    elif ground_truth == 1:
         true_claims += 1
         true_claims_citations += citations
         true_claims_mentions += mentions
+        true_claims_authored += authored_count
     else:
         other_claims += 1
         other_claims_citations += citations
         other_claims_mentions += mentions
+        other_claims_authored += authored_count
 
 print("Avg false claim citations: " + str(false_claims_citations/false_claims))
 print("Avg true claim citations: " + str(true_claims_citations/true_claims))
@@ -93,6 +107,10 @@ print("Avg false claim mentions: " + str(false_claims_mentions/false_claims))
 print("Avg true claim mentions: " + str(true_claims_mentions/true_claims))
 print("Avg other claim mentions: " + str(other_claims_mentions/other_claims))
 
+print("Avg false claim authored: " + str(false_claims_authored/false_claims))
+print("Avg true claim authored: " + str(true_claims_authored/true_claims))
+print("Avg other claim authored: " + str(other_claims_authored/other_claims))
+
 clf = tree.DecisionTreeClassifier()
 clf = clf.fit(X_train, y_train)
 
@@ -101,17 +119,15 @@ PREFIX itsrdf:<https://www.w3.org/2005/11/its/rdf#>
 PREFIX schema:<http://schema.org/>
 PREFIX dbr:<http://dbpedia.org/resource/>
 
-SELECT DISTINCT ?claim ?text ?groundtruth ?mentions ?citations ?avgscore
+SELECT DISTINCT ?claim ?text ?groundTruth ?mentions ?citations ?avgScore ?authoredCount
 WHERE { 
     ?claim a schema:CreativeWork ; 
-           schema:datePublished ?date 
+           schema:datePublished ?date
     # only claims earlier than 2022
-    FILTER(year(?date)>=2022) 
+    FILTER(year(?date)<2022) 
     ?claim schema:text ?text 
     # only english 
     FILTER(lang(?text)="en")
-    ?claimReview schema:itemReviewed ?claim ;
-                 schema:reviewRating ?reviewRating 
     # count mentions
     {
         SELECT ?claim (COUNT(?mention) AS ?mentions) WHERE {
@@ -120,7 +136,7 @@ WHERE {
     }
     # calculate avg score
     {
-        SELECT ?claim (AVG(?score) AS ?avgscore) WHERE {
+        SELECT ?claim (AVG(?score) AS ?avgScore) WHERE {
             ?claim schema:mentions ?mention .
             ?mention itsrdf:taConfidence ?score
         } GROUP BY ?claim
@@ -131,12 +147,21 @@ WHERE {
             ?claim schema:citation ?citation
         } GROUP BY ?claim
     }
+    # count authored
+    {
+        SELECT ?claim (COUNT(?authoredClaim) AS ?authoredCount) WHERE {
+            ?claim schema:author ?author .
+            ?author ^schema:author ?authoredClaim
+        } GROUP BY ?claim
+    }
     # only use claims that have a FALSE, TRUE, or OTHER review
+    ?claim ^schema:itemReviewed ?review .
+    ?review schema:reviewRating ?reviewRating
     FILTER(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_TRUE" || STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_FALSE" || STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_OTHER")
     # bind FALSE to 0, TRUE to 1, OTHER to 2
     BIND(IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_FALSE", 0, 
              IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_TRUE", 1, 
-                 IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_OTHER", 2, -1))) AS ?groundtruth)
+                 IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_OTHER", 2, -1))) AS ?groundTruth)
 } 
 """)
 
@@ -146,12 +171,13 @@ results = sparql.query().convert()
 X_val = []
 y_val = []
 for result in results['results']['bindings']:
-    groundtruth = int(result['groundtruth']['value'])
+    ground_truth = int(result['groundTruth']['value'])
     citations = int(result['citations']['value'])
     mentions = int(result['mentions']['value'])
-    avgscore = float(result['avgscore']['value'])
-    X_val.append([citations, mentions, avgscore])
-    y_val.append(groundtruth)
+    avg_score = float(result['avgScore']['value'])
+    authored_count = int(result['authoredCount']['value'])
+    X_val.append([citations, mentions, avg_score, authored_count])
+    y_val.append(ground_truth)
 
 
 result = clf.predict(X_val)
