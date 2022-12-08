@@ -10,7 +10,7 @@ PREFIX itsrdf:<https://www.w3.org/2005/11/its/rdf#>
 PREFIX schema:<http://schema.org/>
 PREFIX dbr:<http://dbpedia.org/resource/>
 
-SELECT DISTINCT ?claim ?text ?groundTruth ?mentions ?citations ?avgScore ?authoredCount
+SELECT DISTINCT ?claim ?text ?groundTruth ?mentions ?citations ?avgScore ?authoredCount ?authoredCountTrue
 WHERE { 
     ?claim a schema:CreativeWork ; 
            schema:datePublished ?date
@@ -38,12 +38,19 @@ WHERE {
             ?claim schema:citation ?citation
         } GROUP BY ?claim
     }
+    ?claim schema:author ?author .
     # count authored
     {
-        SELECT ?claim (COUNT(?authoredClaim) AS ?authoredCount) WHERE {
-            ?claim schema:author ?author .
-            ?author ^schema:author ?authoredClaim
-        } GROUP BY ?claim
+        SELECT ?author (COUNT(?authoredClaim) AS ?authoredCount) WHERE {
+            ?author ^schema:author ?authoredClaim 
+        } GROUP BY ?author
+    }
+    # count authored true
+    {
+        SELECT ?author (SUM(?authoredCountTrue) AS ?authoredCountTrue) WHERE {
+            ?author ^schema:author/^schema:itemReviewed/schema:reviewRating ?reviewRating .
+            BIND(IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_TRUE", 1, 0) AS ?authoredCountTrue)
+        } GROUP BY ?author
     }
     # only use claims that have a FALSE, TRUE, or OTHER review
     ?claim ^schema:itemReviewed ?review .
@@ -81,7 +88,8 @@ for result in results['results']['bindings']:
     mentions = int(result['mentions']['value'])
     avg_score = float(result['avgScore']['value'])
     authored_count = int(result['authoredCount']['value'])
-    X_train.append([citations, mentions, avg_score, authored_count])
+    authored_count_true = int(result['authoredCountTrue']['value'])
+    X_train.append([citations, mentions, avg_score, authored_count, authored_count_true])
     y_train.append(ground_truth)
     if ground_truth == 0:
         false_claims += 1
@@ -119,12 +127,12 @@ PREFIX itsrdf:<https://www.w3.org/2005/11/its/rdf#>
 PREFIX schema:<http://schema.org/>
 PREFIX dbr:<http://dbpedia.org/resource/>
 
-SELECT DISTINCT ?claim ?text ?groundTruth ?mentions ?citations ?avgScore ?authoredCount
+SELECT DISTINCT ?claim ?text ?groundTruth ?mentions ?citations ?avgScore ?authoredCount ?authoredCountTrue
 WHERE { 
     ?claim a schema:CreativeWork ; 
            schema:datePublished ?date
     # only claims earlier than 2022
-    FILTER(year(?date)<2022) 
+    FILTER(year(?date)>=2022) 
     ?claim schema:text ?text 
     # only english 
     FILTER(lang(?text)="en")
@@ -147,12 +155,19 @@ WHERE {
             ?claim schema:citation ?citation
         } GROUP BY ?claim
     }
+    ?claim schema:author ?author .
     # count authored
     {
-        SELECT ?claim (COUNT(?authoredClaim) AS ?authoredCount) WHERE {
-            ?claim schema:author ?author .
-            ?author ^schema:author ?authoredClaim
-        } GROUP BY ?claim
+        SELECT ?author (COUNT(?authoredClaim) AS ?authoredCount) WHERE {
+            ?author ^schema:author ?authoredClaim 
+        } GROUP BY ?author
+    }
+    # count authored true
+    {
+        SELECT ?author (SUM(?authoredCountTrue) AS ?authoredCountTrue) WHERE {
+            ?author ^schema:author/^schema:itemReviewed/schema:reviewRating ?reviewRating .
+            BIND(IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_TRUE", 1, 0) AS ?authoredCountTrue)
+        } GROUP BY ?author
     }
     # only use claims that have a FALSE, TRUE, or OTHER review
     ?claim ^schema:itemReviewed ?review .
@@ -176,7 +191,8 @@ for result in results['results']['bindings']:
     mentions = int(result['mentions']['value'])
     avg_score = float(result['avgScore']['value'])
     authored_count = int(result['authoredCount']['value'])
-    X_val.append([citations, mentions, avg_score, authored_count])
+    authored_count_true = int(result['authoredCountTrue']['value'])
+    X_val.append([citations, mentions, avg_score, authored_count, authored_count_true])
     y_val.append(ground_truth)
 
 
