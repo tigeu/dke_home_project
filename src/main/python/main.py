@@ -3,6 +3,34 @@ from SPARQLWrapper import SPARQLWrapper, JSON
 
 from sklearn.tree import DecisionTreeClassifier
 
+
+def parse_results(results):
+    X = []
+    y = []
+    for result in results['results']['bindings']:
+        ground_truth = int(result['groundTruth']['value'])
+        authored_count_false = int(result['authoredCountFalse']['value'])
+        authored_count_true = int(result['authoredCountTrue']['value'])
+        authored_count_other = int(result['authoredCountOther']['value'])
+        authored_count = authored_count_false + authored_count_true + authored_count_other
+        authored_count_false_ratio = authored_count_false / authored_count
+        authored_count_true_ratio = authored_count_true / authored_count
+        authored_count_other_ratio = authored_count_other / authored_count
+        reliable = authored_count_false_ratio < 0.1 and (
+                authored_count_true_ratio > 0 or authored_count_other_ratio > 0)
+        X.append([authored_count,
+                  authored_count_false,
+                  authored_count_true,
+                  authored_count_other,
+                  authored_count_false_ratio,
+                  authored_count_true_ratio,
+                  authored_count_other_ratio,
+                  reliable])
+        y.append(ground_truth)
+
+    return X, y
+
+
 sparql = SPARQLWrapper("https://data.gesis.org/claimskg/sparql")
 
 sparql.setQuery("""
@@ -10,7 +38,7 @@ PREFIX itsrdf:<https://www.w3.org/2005/11/its/rdf#>
 PREFIX schema:<http://schema.org/>
 PREFIX dbr:<http://dbpedia.org/resource/>
 
-SELECT ?claim ?text ?groundTruth ?mentions ?citations ?authoredCountFalse ?authoredCountTrue ?authoredCountOther
+SELECT ?claim ?text ?groundTruth ?authoredCountFalse ?authoredCountTrue ?authoredCountOther
 WHERE { 
     ?claim a schema:CreativeWork ; 
            schema:datePublished ?date
@@ -19,18 +47,6 @@ WHERE {
     # only english 
     ?claim schema:text ?text   
     FILTER(lang(?text)="en")
-    # count mentions
-    {
-        SELECT ?claim (COUNT(?mention) AS ?mentions) WHERE {
-            ?claim schema:mentions ?mention
-        } GROUP BY ?claim
-    }
-    # count citations
-    {
-        SELECT ?claim (COUNT(?citation) AS ?citations) WHERE {
-            ?claim schema:citation ?citation
-        } GROUP BY ?claim
-    }
     ?claim schema:author ?author .
     # count authored false/true/other
     {
@@ -55,21 +71,9 @@ WHERE {
 sparql.setReturnFormat(JSON)
 results = sparql.query().convert()
 
-# filter non english
-X_train = []
-y_train = []
-for result in results['results']['bindings']:
-    ground_truth = int(result['groundTruth']['value'])
-    citations = int(result['citations']['value'])
-    mentions = int(result['mentions']['value'])
-    #avg_score = float(result['avgScore']['value'])
-    authored_count_false = int(result['authoredCountFalse']['value'])
-    authored_count_true = int(result['authoredCountTrue']['value'])
-    authored_count_other = int(result['authoredCountOther']['value'])
-    X_train.append([citations, mentions, authored_count_false, authored_count_true, authored_count_other])
-    y_train.append(ground_truth)
+X_train, y_train = parse_results(results)
 
-print(len(y_train))
+print("Train length: ", len(y_train))
 
 clf = DecisionTreeClassifier(max_depth=4)
 clf = clf.fit(X_train, y_train)
@@ -79,7 +83,7 @@ PREFIX itsrdf:<https://www.w3.org/2005/11/its/rdf#>
 PREFIX schema:<http://schema.org/>
 PREFIX dbr:<http://dbpedia.org/resource/>
 
-SELECT ?claim ?text ?groundTruth ?mentions ?citations ?authoredCountFalse ?authoredCountTrue ?authoredCountOther
+SELECT ?claim ?text ?groundTruth ?authoredCountFalse ?authoredCountTrue ?authoredCountOther
 WHERE { 
     ?claim a schema:CreativeWork ; 
            schema:datePublished ?date
@@ -88,18 +92,6 @@ WHERE {
     # only english  
     ?claim schema:text ?text 
     FILTER(lang(?text)="en")
-    # count mentions
-    {
-        SELECT ?claim (COUNT(?mention) AS ?mentions) WHERE {
-            ?claim schema:mentions ?mention
-        } GROUP BY ?claim
-    }
-    # count citations
-    {
-        SELECT ?claim (COUNT(?citation) AS ?citations) WHERE {
-            ?claim schema:citation ?citation
-        } GROUP BY ?claim
-    }
     ?claim schema:author ?author .
     # count authored false/true/other
     {
@@ -118,25 +110,15 @@ WHERE {
     BIND(IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_FALSE", 0, 
              IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_TRUE", 1, 
                  IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_OTHER", 2, -1))) AS ?groundTruth)
-}
+} LIMIT 10000 OFFSET 10000
 """)
 
 sparql.setReturnFormat(JSON)
 results = sparql.query().convert()
 
-X_val = []
-y_val = []
-for result in results['results']['bindings']:
-    ground_truth = int(result['groundTruth']['value'])
-    citations = int(result['citations']['value'])
-    mentions = int(result['mentions']['value'])
-    #avg_score = float(result['avgScore']['value'])
-    authored_count_false = int(result['authoredCountFalse']['value'])
-    authored_count_true = int(result['authoredCountTrue']['value'])
-    authored_count_other = int(result['authoredCountOther']['value'])
-    X_val.append([citations, mentions, authored_count_false, authored_count_true, authored_count_other])
-    y_val.append(ground_truth)
+X_val, y_val = parse_results(results)
 
+print("Val length: ", len(y_val))
 
 result = clf.predict(X_val)
 print("Result: ", result)
