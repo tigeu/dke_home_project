@@ -43,10 +43,7 @@ WHERE {
     ?claim a schema:CreativeWork ; 
            schema:datePublished ?date
     # only claims earlier than 2022
-    FILTER(year(?date)<2022) 
-    # only english 
-    ?claim schema:text ?text   
-    FILTER(lang(?text)="en")
+    FILTER(year(?date)<2022)
     ?claim schema:author ?author .
     # count authored false/true/other
     {
@@ -89,9 +86,6 @@ WHERE {
            schema:datePublished ?date
     # only claims earlier than 2022
     FILTER(year(?date)>=2022)
-    # only english  
-    ?claim schema:text ?text 
-    FILTER(lang(?text)="en")
     ?claim schema:author ?author .
     # count authored false/true/other
     {
@@ -110,7 +104,7 @@ WHERE {
     BIND(IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_FALSE", 0, 
              IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_TRUE", 1, 
                  IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_OTHER", 2, -1))) AS ?groundTruth)
-} LIMIT 10000 OFFSET 10000
+} 
 """)
 
 sparql.setReturnFormat(JSON)
