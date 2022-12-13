@@ -1,48 +1,13 @@
 import numpy as np
+import pickle
 from SPARQLWrapper import SPARQLWrapper, JSON
-
+from utils import parse_results
 from sklearn.tree import DecisionTreeClassifier
-
-
-def parse_results(results):
-    X = []
-    y = []
-    for result in results['results']['bindings']:
-        ground_truth = int(result['groundTruth']['value'])
-        if "mentions" in result:
-            mentions = int(result['mentions']['value'])
-        else:
-            mentions = 0
-        if "citations" in result:
-            citations = int(result['citations']['value'])
-        else:
-            citations = 0
-        authored_count_false = int(result['authoredCountFalse']['value'])
-        authored_count_true = int(result['authoredCountTrue']['value'])
-        authored_count_other = int(result['authoredCountOther']['value'])
-        authored_count = authored_count_false + authored_count_true + authored_count_other
-        authored_count_false_ratio = authored_count_false / authored_count
-        authored_count_true_ratio = authored_count_true / authored_count
-        authored_count_other_ratio = authored_count_other / authored_count
-        reliable = authored_count_false_ratio < 0.1 and (
-                authored_count_true_ratio > 0 or authored_count_other_ratio > 0)
-        X.append([mentions,
-                  citations,
-                  authored_count,
-                  authored_count_false,
-                  authored_count_true,
-                  authored_count_other,
-                  authored_count_false_ratio,
-                  authored_count_true_ratio,
-                  authored_count_other_ratio,
-                  reliable])
-        y.append(ground_truth)
-
-    return X, y
 
 
 sparql = SPARQLWrapper("https://data.gesis.org/claimskg/sparql")
 
+# Training
 sparql.setQuery("""
 PREFIX itsrdf:<https://www.w3.org/2005/11/its/rdf#>
 PREFIX schema:<http://schema.org/>
@@ -70,17 +35,19 @@ WHERE {
             } GROUP BY ?claim
         }
     }
-    ?claim schema:author ?author .
-    # only use claims that have a FALSE, TRUE, or OTHER review
     # count authored false/true/other
     {
-        SELECT ?author (SUM(?authoredCountFalse) AS ?authoredCountFalse) (SUM(?authoredCountTrue) AS ?authoredCountTrue) (SUM(?authoredCountOther) AS ?authoredCountOther) WHERE {
-            ?author ^schema:author/^schema:itemReviewed/schema:reviewRating ?reviewRating .
+        SELECT ?claim (SUM(?authoredCountFalse) AS ?authoredCountFalse) (SUM(?authoredCountTrue) AS ?authoredCountTrue) (SUM(?authoredCountOther) AS ?authoredCountOther) WHERE {
+            ?claim schema:author/^schema:author ?authoredClaims .
+            # make sure current claim is not counted
+            FILTER(STR(?authoredClaims)!=STR(?claim))
+            ?authoredClaims ^schema:itemReviewed/schema:reviewRating ?reviewRating .
             BIND(IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_FALSE", 1, 0) AS ?authoredCountFalse)
             BIND(IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_TRUE", 1, 0) AS ?authoredCountTrue)
             BIND(IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_OTHER", 1, 0) AS ?authoredCountOther)
-        } GROUP BY ?author
+        } GROUP BY ?claim
     }
+    # only use claims that have a FALSE, TRUE, or OTHER review
     ?claim ^schema:itemReviewed ?review .
     ?review schema:reviewRating ?reviewRating
     FILTER(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_TRUE" || STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_FALSE" || STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_OTHER")
@@ -90,17 +57,24 @@ WHERE {
                  IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_OTHER", 2, -1))) AS ?groundTruth)
 }
 """)
-
 sparql.setReturnFormat(JSON)
+
+print("Executing train query")
 results = sparql.query().convert()
 
+print("Parsing train query results")
 X_train, y_train = parse_results(results)
 
-print("Train length: ", len(y_train))
-
-clf = DecisionTreeClassifier(max_depth=4)
+print("Training classifier")
+clf = DecisionTreeClassifier(max_depth=8)
 clf = clf.fit(X_train, y_train)
 
+# Save trained model
+print("Saving trained model")
+with open('decision_tree.pkl', 'wb') as f:
+    pickle.dump(clf, f)
+
+# Validation
 sparql.setQuery("""
 PREFIX itsrdf:<https://www.w3.org/2005/11/its/rdf#>
 PREFIX schema:<http://schema.org/>
@@ -111,7 +85,7 @@ WHERE {
     ?claim a schema:CreativeWork ; 
            schema:datePublished ?date 
     # only claims earlier than 2022
-    FILTER(year(?date)<2022)
+    FILTER(year(?date)>=2022)
     # count mentions
     {
         OPTIONAL{
@@ -128,17 +102,19 @@ WHERE {
             } GROUP BY ?claim
         }
     }
-    ?claim schema:author ?author .
-    # only use claims that have a FALSE, TRUE, or OTHER review
     # count authored false/true/other
     {
-        SELECT ?author (SUM(?authoredCountFalse) AS ?authoredCountFalse) (SUM(?authoredCountTrue) AS ?authoredCountTrue) (SUM(?authoredCountOther) AS ?authoredCountOther) WHERE {
-            ?author ^schema:author/^schema:itemReviewed/schema:reviewRating ?reviewRating .
+        SELECT ?claim (SUM(?authoredCountFalse) AS ?authoredCountFalse) (SUM(?authoredCountTrue) AS ?authoredCountTrue) (SUM(?authoredCountOther) AS ?authoredCountOther) WHERE {
+            ?claim schema:author/^schema:author ?authoredClaims .
+            # make sure current claim is not counted
+            FILTER(STR(?authoredClaims)!=STR(?claim))
+            ?authoredClaims ^schema:itemReviewed/schema:reviewRating ?reviewRating .
             BIND(IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_FALSE", 1, 0) AS ?authoredCountFalse)
             BIND(IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_TRUE", 1, 0) AS ?authoredCountTrue)
             BIND(IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_OTHER", 1, 0) AS ?authoredCountOther)
-        } GROUP BY ?author
+        } GROUP BY ?claim
     }
+    # only use claims that have a FALSE, TRUE, or OTHER review
     ?claim ^schema:itemReviewed ?review .
     ?review schema:reviewRating ?reviewRating
     FILTER(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_TRUE" || STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_FALSE" || STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_OTHER")
@@ -150,13 +126,15 @@ WHERE {
 """)
 
 sparql.setReturnFormat(JSON)
+
+print("Executing validation query")
 results = sparql.query().convert()
 
+print("Parsing validation query results")
 X_val, y_val = parse_results(results)
 
-print("Val length: ", len(y_val))
-
+print("Predicting validation results")
 result = clf.predict(X_val)
-print("Result: ", result)
-print("Groundtruth: ", y_val)
-print(np.array(result == y_val).sum()/result.size)
+
+print("Validation accuracy: ", np.array(result == y_val).sum()/result.size)
+
