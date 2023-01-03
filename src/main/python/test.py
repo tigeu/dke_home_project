@@ -6,11 +6,13 @@ from SPARQLWrapper import SPARQLWrapper, JSON
 from utils import parse_results
 
 # Load trained model
+print("Loading trained decision tree")
 with open('decision_tree.pkl', 'rb') as f:
     clf = pickle.load(f)
 
 # Load test IDs
 claims = []
+print("Loading test ids")
 with open("../../../test_data/dummy_ids.csv", newline='') as csv_file:
     csv_reader = csv.reader(csv_file, delimiter=' ', quotechar='|')
     for claim in csv_reader:
@@ -54,6 +56,8 @@ WHERE {{
             ?claim schema:author/^schema:author ?authoredClaims .
             # make sure current claim is not counted
             FILTER(STR(?authoredClaims)!=STR(?claim))
+            # make sure other claims in test set are not counted
+            FILTER(STR(?authoredClaims) not in ({0}))
             ?authoredClaims ^schema:itemReviewed/schema:reviewRating ?reviewRating .
             BIND(IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_FALSE", 1, 0) AS ?authoredCountFalse)
             BIND(IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_TRUE", 1, 0) AS ?authoredCountTrue)
@@ -87,5 +91,6 @@ for claim, prediction in zip(claim_data, predictions):
     line = f'{claim_id},""{claim_text}"",{prediction_label}\n'
     lines += line
 
+print("Saving results to csv")
 with open("../../../output_data/predictions.csv", "w", encoding='utf-8') as csv_file:
     csv_file.write(lines)
