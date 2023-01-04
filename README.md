@@ -8,6 +8,7 @@ Use this repository to prepare your solution.
 
 - **assignment**: contains a more detailed description of the task and the required output. 
 - **src**: add your code here in the suitable subfolder(s) (depending on whether you use Python or Java). 
-- **test_data**:  the test data will be added to this folder. Please refer to the task description in the assignment folder for information on the format. The dummy_ids.csv file contains dummy data in the required format. 
-- **output_data**: folder that must be populated with the results of the home project. Please refer to the task description in the assignment folder for information on the format. The file dummy_predictions.csv contains dummy data in the required format. 
+- **test_data**:  the test data will be added to this folder (file _test\_ids.csv_). Please refer to the task description in the assignment folder for information on the format. The dummy_ids.csv file contains dummy data in the required format. 
+- **output_data**: folder that must be populated with the results of the home project (file _predictions.csv_). Please refer to the task description in the assignment folder for information on the format. The file dummy_predictions.csv contains dummy data in the required format.
+- **eval**: contains the evaluation script and gold standard file. Run  `python3 eval.py` to compute the score of your model (compares your predictions in output\_data /predictions.csv to the gold standard). 
 
