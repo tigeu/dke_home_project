@@ -13,17 +13,18 @@ with open('decision_tree.pkl', 'rb') as f:
 # Load test IDs
 claims = []
 print("Loading test ids")
-with open("../../../test_data/dummy_ids.csv", newline='') as csv_file:
+with open("../../../test_data/test_ids.csv", newline='') as csv_file:
     csv_reader = csv.reader(csv_file, delimiter=' ', quotechar='|')
     for claim in csv_reader:
         claims.append(claim[0])
 
+claim_amount = len(claims)
 concat_claims = '"' + '", "'.join(claims) + '"'
 
 # Test
 sparql = SPARQLWrapper("https://data.gesis.org/claimskg/sparql")
 
-sparql.setQuery("""
+query = """
 PREFIX itsrdf:<https://www.w3.org/2005/11/its/rdf#>
 PREFIX schema:<http://schema.org/>
 PREFIX dbr:<http://dbpedia.org/resource/>
@@ -32,7 +33,8 @@ SELECT ?claim ?text ?authoredCountFalse ?authoredCountTrue ?authoredCountOther ?
 WHERE {{
     ?claim a schema:CreativeWork ; 
            schema:text ?text
-    FILTER(STR(?claim) in ({0}))
+    # only use current claim
+    FILTER(STR(?claim)="{0}")
     # count mentions
     {{
         OPTIONAL{{
@@ -57,7 +59,7 @@ WHERE {{
             # make sure current claim is not counted
             FILTER(STR(?authoredClaims)!=STR(?claim))
             # make sure other claims in test set are not counted
-            FILTER(STR(?authoredClaims) not in ({0}))
+            #FILTER(STR(?authoredClaims) not in ({0}))
             ?authoredClaims ^schema:itemReviewed/schema:reviewRating ?reviewRating .
             BIND(IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_FALSE", 1, 0) AS ?authoredCountFalse)
             BIND(IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_TRUE", 1, 0) AS ?authoredCountTrue)
@@ -65,15 +67,22 @@ WHERE {{
         }} GROUP BY ?claim
     }}
 }}
-""".format(concat_claims))
-
-sparql.setReturnFormat(JSON)
+"""
 
 print("Executing test query")
-results = sparql.query().convert()
+X_test = []
+claim_data = []
+for index, claim in enumerate(claims):
+    print(f"Processing {index}/{claim_amount}")
+    formatted_query = query.format(claim)
+    sparql.setQuery(formatted_query)
+    sparql.setReturnFormat(JSON)
+    results = sparql.query().convert()
 
-print("Parsing test query results")
-X_test, claim_data = parse_results(results, test=True)
+    X, data = parse_results(results, test=True)
+
+    X_test.extend(X)
+    claim_data.extend(data)
 
 print("Predicting test results")
 predictions = clf.predict(X_test)
