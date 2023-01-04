@@ -1,9 +1,8 @@
 import pickle
 import csv
-from sklearn import tree
 from SPARQLWrapper import SPARQLWrapper, JSON
 
-from utils import parse_results
+from utils import parse_results, count_ground_truth_claims
 
 # Load trained model
 print("Loading trained decision tree")
@@ -18,7 +17,7 @@ with open("../../../test_data/test_ids.csv", newline='') as csv_file:
     for claim in csv_reader:
         claims.append(claim[0])
 
-claim_amount = len(claims)
+claims_count = len(claims)
 concat_claims = '"' + '", "'.join(claims) + '"'
 
 # Test
@@ -76,7 +75,7 @@ print("Executing test query")
 X_test = []
 claim_data = []
 for index, claim in enumerate(claims):
-    print(f"Processing {index+1}/{claim_amount}")
+    print(f"Processing {index+1}/{claims_count}")
     formatted_query = query.format(claim)
     sparql.setQuery(formatted_query)
     sparql.setReturnFormat(JSON)
@@ -94,38 +93,17 @@ for index, claim in enumerate(claims):
         sparql.setReturnFormat(JSON)
         author_results = sparql.query().convert()
 
-        # count false, true and other claims
-        authoredCountFalse = 0
-        authoredCountTrue = 0
-        authoredCountOther = 0
-        for result in author_results['results']['bindings']:
-            current_claim = result['claim']['value']
-            # don't count claims from test set
-            if current_claim in claims:
-                continue
-
-            if 'groundTruth' in result:
-                ground_truth = int(result['groundTruth']['value'])
-                if ground_truth == 0:
-                    authoredCountFalse += 1
-                elif ground_truth == 1:
-                    authoredCountTrue += 1
-                elif ground_truth == 2:
-                    authoredCountOther += 1
-
-        if len(results['results']['bindings']) == 0:
-            print(claim)
-
+        count_false, count_true, count_other = count_ground_truth_claims(author_results, claims)
     else:
-        authoredCountFalse = 0
-        authoredCountTrue = 0
-        authoredCountOther = 0
+        count_false = 0
+        count_true = 0
+        count_other = 0
 
     # add to results
     for result in results['results']['bindings']:
-        result['authoredCountFalse'] = {'value': authoredCountFalse}
-        result['authoredCountTrue'] = {'value': authoredCountTrue}
-        result['authoredCountOther'] = {'value': authoredCountOther}
+        result['countFalse'] = {'value': count_false}
+        result['countTrue'] = {'value': count_true}
+        result['countOther'] = {'value': count_other}
 
     X, data = parse_results(results, test=True)
 
@@ -145,9 +123,9 @@ for claim, prediction in zip(claim_data, predictions):
     elif prediction == 2:
         prediction_label = "NEITHER"
 
-    line = f'{claim_id},""{claim_text}"",{prediction_label}\n'
+    line = f'{claim_id},"test",{prediction_label}\n'
     lines += line
 
 print("Saving results to csv")
-with open("../../../output_data/predictions.csv", "w", encoding='utf-8') as csv_file:
+with open("../../../output_data/predictions.csv", "w") as csv_file:
     csv_file.write(lines)

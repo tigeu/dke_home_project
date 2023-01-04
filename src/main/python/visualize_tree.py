@@ -8,13 +8,13 @@ with open('decision_tree.pkl', 'rb') as f:
 
 feature_names = ["mentions",
                  "citations",
-                 "authored_count",
-                 "authored_count_false",
-                 "authored_count_true",
-                 "authored_count_other",
-                 "authored_count_false_ratio",
-                 "authored_count_true_ratio",
-                 "authored_count_other_ratio",
+                 "count",
+                 "count_false",
+                 "count_true",
+                 "count_other",
+                 "count_false_ratio",
+                 "count_true_ratio",
+                 "count_other_ratio",
                  "reliable"]
 class_names = ["TRUE", "FALSE", "NEITHER"]
 

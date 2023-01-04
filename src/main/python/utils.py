@@ -11,9 +11,9 @@ def parse_results(results, test=False):
             citations = int(result['citations']['value'])
         else:
             citations = 0
-        authored_count_false = int(result['authoredCountFalse']['value'])
-        authored_count_true = int(result['authoredCountTrue']['value'])
-        authored_count_other = int(result['authoredCountOther']['value'])
+        authored_count_false = int(result['countFalse']['value'])
+        authored_count_true = int(result['countTrue']['value'])
+        authored_count_other = int(result['countOther']['value'])
         authored_count = authored_count_false + authored_count_true + authored_count_other
         if authored_count == 0:
             authored_count_false_ratio = 0
@@ -44,3 +44,26 @@ def parse_results(results, test=False):
             y.append(ground_truth)
 
     return X, y
+
+
+def count_ground_truth_claims(author_results, claims=[]):
+    count_false = 0
+    count_true = 0
+    count_other = 0
+    for result in author_results['results']['bindings']:
+        current_claim = result['claim']['value']
+
+        # don't count claims from test set
+        if current_claim in claims:
+            continue
+
+        if 'groundTruth' in result:
+            ground_truth = int(result['groundTruth']['value'])
+            if ground_truth == 0:
+                count_false += 1
+            elif ground_truth == 1:
+                count_true += 1
+            elif ground_truth == 2:
+                count_other += 1
+
+    return count_false, count_true, count_other
