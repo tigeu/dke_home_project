@@ -62,6 +62,9 @@ WHERE {{
     FILTER(STR(?author)="{0}")
     # only use claims that have a FALSE, TRUE, or OTHER review
     ?claim ^schema:itemReviewed ?review .
+    # only claims reviewed earlier than 2022
+    ?review schema:datePublished ?datePublished
+    FILTER(year(?datePublished)<2022)
     ?review schema:reviewRating ?reviewRating
     FILTER(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_TRUE" || STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_FALSE" || STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_OTHER")
     # bind FALSE to 0, TRUE to 1, OTHER to 2

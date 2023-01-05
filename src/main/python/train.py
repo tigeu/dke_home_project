@@ -16,10 +16,18 @@ PREFIX dbr:<http://dbpedia.org/resource/>
 SELECT ?claim ?text ?author ?mentions ?citations ?groundTruth
 WHERE {{
     ?claim a schema:CreativeWork ; 
-           schema:text ?text ;
-           schema:datePublished ?date 
-    # only claims earlier than 2022
-    FILTER(year(?date)<2022)
+           schema:text ?text .
+    # only use claims that have a FALSE, TRUE, or OTHER review
+    ?claim ^schema:itemReviewed ?review .
+    # only claims reviewed earlier than 2022
+    ?review schema:datePublished ?datePublished
+    FILTER(year(?datePublished)<2022)
+    ?review schema:reviewRating ?reviewRating
+    FILTER(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_TRUE" || STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_FALSE" || STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_OTHER")
+    # bind FALSE to 0, TRUE to 1, OTHER to 2
+    BIND(IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_FALSE", 0, 
+        IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_TRUE", 1, 
+            IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_OTHER", 2, -1))) AS ?groundTruth)
     OPTIONAL{{?claim schema:author ?author}}
     # count mentions
     OPTIONAL{{
@@ -33,14 +41,6 @@ WHERE {{
             ?claim schema:citation ?citation
         }} GROUP BY ?claim
     }}
-    # only use claims that have a FALSE, TRUE, or OTHER review
-    ?claim ^schema:itemReviewed ?review .
-    ?review schema:reviewRating ?reviewRating
-    FILTER(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_TRUE" || STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_FALSE" || STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_OTHER")
-    # bind FALSE to 0, TRUE to 1, OTHER to 2
-    BIND(IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_FALSE", 0, 
-        IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_TRUE", 1, 
-            IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_OTHER", 2, -1))) AS ?groundTruth)
 }} LIMIT 100
 """)
 sparql.setReturnFormat(JSON)
@@ -57,6 +57,9 @@ WHERE {{
     FILTER(STR(?author)="{0}")
     # only use claims that have a FALSE, TRUE, or OTHER review
     ?claim ^schema:itemReviewed ?review .
+    # only claims reviewed earlier than 2022
+    ?review schema:datePublished ?datePublished
+    FILTER(year(?datePublished)<2022)
     ?review schema:reviewRating ?reviewRating
     FILTER(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_TRUE" || STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_FALSE" || STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_OTHER")
     # bind FALSE to 0, TRUE to 1, OTHER to 2
@@ -115,10 +118,18 @@ PREFIX dbr:<http://dbpedia.org/resource/>
 SELECT ?claim ?text ?author ?mentions ?citations ?groundTruth
 WHERE {{
     ?claim a schema:CreativeWork ; 
-           schema:text ?text ;
-           schema:datePublished ?date 
-    # only claims earlier than 2022
-    FILTER(year(?date)>=2022)
+           schema:text ?text .
+    # only use claims that have a FALSE, TRUE, or OTHER review
+    ?claim ^schema:itemReviewed ?review .
+    # only claims reviewed later than 2022
+    ?review schema:datePublished ?datePublished
+    FILTER(year(?datePublished)>=2022)
+    ?review schema:reviewRating ?reviewRating
+    FILTER(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_TRUE" || STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_FALSE" || STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_OTHER")
+    # bind FALSE to 0, TRUE to 1, OTHER to 2
+    BIND(IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_FALSE", 0, 
+        IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_TRUE", 1, 
+            IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_OTHER", 2, -1))) AS ?groundTruth)
     OPTIONAL{{?claim schema:author ?author}}
     # count mentions
     OPTIONAL{{
@@ -132,14 +143,6 @@ WHERE {{
             ?claim schema:citation ?citation
         }} GROUP BY ?claim
     }}
-    # only use claims that have a FALSE, TRUE, or OTHER review
-    ?claim ^schema:itemReviewed ?review .
-    ?review schema:reviewRating ?reviewRating
-    FILTER(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_TRUE" || STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_FALSE" || STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_OTHER")
-    # bind FALSE to 0, TRUE to 1, OTHER to 2
-    BIND(IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_FALSE", 0, 
-        IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_TRUE", 1, 
-            IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_OTHER", 2, -1))) AS ?groundTruth)
 }} LIMIT 100
 """)
 sparql.setReturnFormat(JSON)
