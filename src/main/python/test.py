@@ -75,7 +75,7 @@ print("Executing test query")
 X_test = []
 claim_data = []
 for index, claim in enumerate(claims):
-    print(f"Processing {index+1}/{claims_count}")
+    print(f"Processing {index+1}/{claims_count}: {claim}")
     formatted_query = query.format(claim)
     sparql.setQuery(formatted_query)
     sparql.setReturnFormat(JSON)

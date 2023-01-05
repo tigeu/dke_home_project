@@ -70,9 +70,8 @@ print("Executing train query")
 results = sparql.query().convert()
 claims_count = len(results['results']['bindings'])
 for index, result in enumerate(results['results']['bindings']):
-    print(f"Processing {index + 1}/{claims_count}")
-
     claim = result['claim']['value']
+    print(f"Processing {index + 1}/{claims_count}: {claim}")
     # get author of current query
     author = ""
     if 'author' in result:
@@ -149,9 +148,8 @@ print("Executing validation query")
 results = sparql.query().convert()
 claims_count = len(results['results']['bindings'])
 for index, result in enumerate(results['results']['bindings']):
-    print(f"Processing {index + 1}/{claims_count}")
-
     claim = result['claim']['value']
+    print(f"Processing {index + 1}/{claims_count}: {claim}")
     # get author of current query
     author = ""
     if 'author' in result:

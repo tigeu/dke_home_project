@@ -1,3 +1,6 @@
+import re
+
+
 def parse_results(results, test=False):
     X = []
     y = []
@@ -38,6 +41,8 @@ def parse_results(results, test=False):
         if test:
             claim = result['claim']['value']
             text = result['text']['value']
+            # filter all non-ascii signs
+            text = re.sub(r'[^\x00-\x7F]+', '', text)
             y.append([claim, text])
         if not test:
             ground_truth = int(result['groundTruth']['value'])
