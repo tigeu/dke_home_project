@@ -60,7 +60,7 @@ WHERE {{
             IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_OTHER", 2, -1))) AS ?groundTruth)
 }} LIMIT 100
 ```
-After that I Loop through all the claims and execute a specify additional query getting all claims the author published together with its ground truth data. In the code it is ensured that no review rating from the test set is used.
+After that I Loop through all the claims and execute a specific additional query getting all claims the author published together with its ground truth data. In the code it is ensured that no review rating from the test set is used.
 ```
 PREFIX itsrdf:<https://www.w3.org/2005/11/its/rdf#>
 PREFIX schema:<http://schema.org/>
