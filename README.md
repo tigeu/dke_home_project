@@ -82,6 +82,55 @@ WHERE {{
 }}
 ```
 
+## Testing explanation
+The testing follows the same procedure as the training, with the following, modifed queries:
+```
+PREFIX itsrdf:<https://www.w3.org/2005/11/its/rdf#>
+PREFIX schema:<http://schema.org/>
+PREFIX dbr:<http://dbpedia.org/resource/>
+
+SELECT ?claim ?text ?author ?mentions ?citations
+WHERE {{
+    ?claim a schema:CreativeWork ; 
+           schema:text ?text
+    # only use current claim
+    FILTER(STR(?claim)="{0}")
+    OPTIONAL{{?claim schema:author ?author}}
+    # count mentions
+    OPTIONAL{{
+        SELECT ?claim (COUNT(?mention) AS ?mentions) WHERE {{
+            ?claim schema:mentions ?mention
+        }} GROUP BY ?claim
+    }}
+    # count citations
+    OPTIONAL{{
+        SELECT ?claim (COUNT(?citation) AS ?citations) WHERE {{
+            ?claim schema:citation ?citation
+        }} GROUP BY ?claim
+    }}
+}}
+```
+```
+PREFIX itsrdf:<https://www.w3.org/2005/11/its/rdf#>
+PREFIX schema:<http://schema.org/>
+PREFIX dbr:<http://dbpedia.org/resource/>
+
+SELECT ?claim ?groundTruth
+WHERE {{
+    ?claim a schema:CreativeWork ; 
+           schema:author ?author 
+    FILTER(STR(?author)="{0}")
+    # only use claims that have a FALSE, TRUE, or OTHER review
+    ?claim ^schema:itemReviewed ?review .
+    ?review schema:reviewRating ?reviewRating
+    FILTER(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_TRUE" || STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_FALSE" || STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_OTHER")
+    # bind FALSE to 0, TRUE to 1, OTHER to 2
+    BIND(IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_FALSE", 0, 
+        IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_TRUE", 1, 
+            IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_OTHER", 2, -1))) AS ?groundTruth)
+}}
+```
+
 ## Train model
 The model can be trained by executing "src/main/python/train.py"
 
