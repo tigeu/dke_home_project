@@ -18,6 +18,6 @@ feature_names = ["mentions",
                  "reliable"]
 class_names = ["TRUE", "FALSE", "NEITHER"]
 
-plt.figure(figsize=(75, 30))
-tree.plot_tree(clf, fontsize=15, feature_names=feature_names, class_names=class_names)
+plt.figure(figsize=(110, 30))
+tree.plot_tree(clf, fontsize=10, feature_names=feature_names, class_names=class_names)
 plt.savefig("decision_tree.pdf")

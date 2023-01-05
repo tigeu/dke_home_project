@@ -17,14 +17,14 @@ Use this repository to prepare your solution.
 output_data/predictions.csv
 
 ## Output of the evaluation script
-Accuracy: 0.57 
-(macro) Precision: 0.40 
-(macro) Recall: 0.47
+Accuracy: 0.53
+(macro) Precision: 0.51
+(macro) Recall: 0.52
 
 (also saved in "evaluation_output.txt")
 
 ## Training explanation
-First I query 100 claims from the endpoint using this query:
+First I query 1000 claims, their authors, the amount of mentions and citations from the endpoint using this query:
 ```
 PREFIX itsrdf:<https://www.w3.org/2005/11/its/rdf#>
 PREFIX schema:<http://schema.org/>
@@ -33,10 +33,18 @@ PREFIX dbr:<http://dbpedia.org/resource/>
 SELECT ?claim ?text ?author ?mentions ?citations ?groundTruth
 WHERE {{
     ?claim a schema:CreativeWork ; 
-           schema:text ?text ;
-           schema:datePublished ?date 
-    # only claims earlier than 2022
-    FILTER(year(?date)<2022)
+           schema:text ?text .
+    # only use claims that have a FALSE, TRUE, or OTHER review
+    ?claim ^schema:itemReviewed ?review .
+    # only claims reviewed earlier than 2022
+    ?review schema:datePublished ?datePublished
+    FILTER(year(?datePublished)<2022)
+    ?review schema:reviewRating ?reviewRating
+    FILTER(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_TRUE" || STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_FALSE" || STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_OTHER")
+    # bind FALSE to 0, TRUE to 1, OTHER to 2
+    BIND(IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_FALSE", 0, 
+        IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_TRUE", 1, 
+            IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_OTHER", 2, -1))) AS ?groundTruth)
     OPTIONAL{{?claim schema:author ?author}}
     # count mentions
     OPTIONAL{{
@@ -50,16 +58,9 @@ WHERE {{
             ?claim schema:citation ?citation
         }} GROUP BY ?claim
     }}
-    # only use claims that have a FALSE, TRUE, or OTHER review
-    ?claim ^schema:itemReviewed ?review .
-    ?review schema:reviewRating ?reviewRating
-    FILTER(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_TRUE" || STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_FALSE" || STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_OTHER")
-    # bind FALSE to 0, TRUE to 1, OTHER to 2
-    BIND(IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_FALSE", 0, 
-        IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_TRUE", 1, 
-            IF(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_OTHER", 2, -1))) AS ?groundTruth)
-}} LIMIT 100
+}} LIMIT 1000
 ```
+The author is required for the next query to find out whether the author tends to write false, true or neither claims. If they publish false news more often it is likely that their next claim is false, too. The mentions and citations could also be interesting, as e.g. true claims might have more citations than false ones.
 After that I Loop through all the claims and execute a specific additional query getting all claims the author published together with its ground truth data. In the code it is ensured that no review rating from the test set is used.
 ```
 PREFIX itsrdf:<https://www.w3.org/2005/11/its/rdf#>
@@ -73,6 +74,9 @@ WHERE {{
     FILTER(STR(?author)="{0}")
     # only use claims that have a FALSE, TRUE, or OTHER review
     ?claim ^schema:itemReviewed ?review .
+    # only claims reviewed earlier than 2022
+    ?review schema:datePublished ?datePublished
+    FILTER(year(?datePublished)<2022)
     ?review schema:reviewRating ?reviewRating
     FILTER(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_TRUE" || STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_FALSE" || STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_OTHER")
     # bind FALSE to 0, TRUE to 1, OTHER to 2
@@ -83,7 +87,7 @@ WHERE {{
 ```
 
 ## Testing explanation
-The testing follows the same procedure as the training, with the following, modifed queries:
+The testing follows the same procedure as the training, with the following, modified queries:
 ```
 PREFIX itsrdf:<https://www.w3.org/2005/11/its/rdf#>
 PREFIX schema:<http://schema.org/>
@@ -122,6 +126,9 @@ WHERE {{
     FILTER(STR(?author)="{0}")
     # only use claims that have a FALSE, TRUE, or OTHER review
     ?claim ^schema:itemReviewed ?review .
+    # only claims reviewed earlier than 2022
+    ?review schema:datePublished ?datePublished
+    FILTER(year(?datePublished)<2022)
     ?review schema:reviewRating ?reviewRating
     FILTER(STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_TRUE" || STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_FALSE" || STR(?reviewRating)="http://data.gesis.org/claimskg/rating/normalized/claimskg_OTHER")
     # bind FALSE to 0, TRUE to 1, OTHER to 2
