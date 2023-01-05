@@ -41,7 +41,7 @@ WHERE {{
             ?claim schema:citation ?citation
         }} GROUP BY ?claim
     }}
-}} LIMIT 1000
+}}
 """)
 sparql.setReturnFormat(JSON)
 
@@ -143,7 +143,7 @@ WHERE {{
             ?claim schema:citation ?citation
         }} GROUP BY ?claim
     }}
-}} LIMIT 100
+}} 
 """)
 sparql.setReturnFormat(JSON)
 

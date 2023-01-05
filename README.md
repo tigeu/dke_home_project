@@ -17,9 +17,9 @@ Use this repository to prepare your solution.
 output_data/predictions.csv
 
 ## Output of the evaluation script
-Accuracy: 0.53
-(macro) Precision: 0.51
-(macro) Recall: 0.52
+Accuracy: 0.54
+(macro) Precision: 0.53
+(macro) Recall: 0.48
 
 (also saved in "evaluation_output.txt")
 
@@ -58,7 +58,7 @@ WHERE {{
             ?claim schema:citation ?citation
         }} GROUP BY ?claim
     }}
-}} LIMIT 1000
+}} 
 ```
 The author is required for the next query to find out whether the author tends to write false, true or neither claims. If they publish false news more often it is likely that their next claim is false, too. The mentions and citations could also be interesting, as e.g. true claims might have more citations than false ones.
 After that I Loop through all the claims and execute a specific additional query getting all claims the author published together with its ground truth data. In the code it is ensured that no review rating from the test set is used.
