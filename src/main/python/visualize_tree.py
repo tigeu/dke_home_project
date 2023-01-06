@@ -12,12 +12,12 @@ feature_names = ["mentions",
                  "count_false",
                  "count_true",
                  "count_other",
-                 "count_false_ratio",
-                 "count_true_ratio",
-                 "count_other_ratio",
+                 "false_ratio",
+                 "true_ratio",
+                 "other_ratio",
                  "reliable"]
 class_names = ["TRUE", "FALSE", "NEITHER"]
 
-plt.figure(figsize=(110, 30))
+plt.figure(figsize=(500, 50))
 tree.plot_tree(clf, fontsize=10, feature_names=feature_names, class_names=class_names)
 plt.savefig("decision_tree.pdf")

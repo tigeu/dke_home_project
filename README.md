@@ -24,7 +24,7 @@ Accuracy: 0.54
 (also saved in "evaluation_output.txt")
 
 ## Training explanation
-First I query 1000 claims, their authors, the amount of mentions and citations from the endpoint using this query:
+First I query 10.000 claims, their authors, the amount of mentions and citations from the endpoint using this query:
 ```
 PREFIX itsrdf:<https://www.w3.org/2005/11/its/rdf#>
 PREFIX schema:<http://schema.org/>

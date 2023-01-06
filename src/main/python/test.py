@@ -126,7 +126,7 @@ for claim, prediction in zip(claim_data, predictions):
     elif prediction == 2:
         prediction_label = "NEITHER"
 
-    line = f'{claim_id},"test",{prediction_label}\n'
+    line = f'{claim_id},"""{claim_text}""",{prediction_label}\n'
     lines += line
 
 print("Saving results to csv")
